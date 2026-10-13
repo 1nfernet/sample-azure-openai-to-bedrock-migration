@@ -78,7 +78,19 @@ class TestConverseParamMapping(unittest.TestCase):
     def test_additional_fields_carries_reasoning_effort_and_verbosity(self):
         params = {"reasoning_effort": "high", "verbosity": "low", "max_tokens": 64}
         fields = BedrockConverse._to_additional_fields(params)
-        self.assertEqual(fields, {"reasoning_effort": "high", "verbosity": "low"})
+        # Converse rejects the flat Chat Completions names; it takes the nested
+        # structured form (reasoning.effort / text.verbosity).
+        self.assertEqual(
+            fields, {"reasoning": {"effort": "high"}, "text": {"verbosity": "low"}}
+        )
+
+    def test_additional_fields_carries_reasoning_effort_alone(self):
+        fields = BedrockConverse._to_additional_fields({"reasoning_effort": "medium"})
+        self.assertEqual(fields, {"reasoning": {"effort": "medium"}})
+
+    def test_additional_fields_carries_verbosity_alone(self):
+        fields = BedrockConverse._to_additional_fields({"verbosity": "high"})
+        self.assertEqual(fields, {"text": {"verbosity": "high"}})
 
     def test_additional_fields_empty_when_absent(self):
         self.assertEqual(BedrockConverse._to_additional_fields({"temperature": 0.2}), {})

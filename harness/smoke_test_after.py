@@ -156,13 +156,16 @@ def check_reasoning_effort_verbosity(bedrock) -> None:
         return
 
     # Path B — Converse: reasoning_effort/verbosity have no inferenceConfig
-    # slot, so they travel through additionalModelRequestFields.
+    # slot. They also can't use the flat Chat Completions names here (Converse
+    # rejects those with unknown_parameter); on Converse the OpenAI models take
+    # the nested shape — reasoning.effort / text.verbosity — via
+    # additionalModelRequestFields.
     try:
         r = bedrock.converse(
             modelId=MODEL,
             messages=[{"role": "user", "content": [{"text": "What is 17 * 23? Reply with only the number."}]}],
             inferenceConfig={"maxTokens": 256},
-            additionalModelRequestFields={"reasoning_effort": "low", "verbosity": "low"},
+            additionalModelRequestFields={"reasoning": {"effort": "low"}, "text": {"verbosity": "low"}},
         )
         text = _reply_text(r["output"]["message"])
         assert text.strip(), "empty reply"
@@ -216,7 +219,11 @@ def check_langchain() -> None:
         record("langchain ChatBedrockConverse", SKIP, "langchain-aws not installed")
         return
     try:
-        llm = ChatBedrockConverse(model=MODEL, region_name=REGION, temperature=0.0, max_tokens=256)
+        kwargs: dict = {"model": MODEL, "region_name": REGION, "max_tokens": 256}
+        if not _is_frontier_openai(MODEL):
+            # Frontier GPT models reject an explicit temperature via Converse.
+            kwargs["temperature"] = 0.0
+        llm = ChatBedrockConverse(**kwargs)
         resp = llm.invoke("In one sentence, what is Amazon Bedrock?")
         content = resp.content if isinstance(resp.content, str) else str(resp.content)
         assert content.strip(), "empty reply"

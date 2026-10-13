@@ -67,9 +67,11 @@ def _drop_unsupported_sampling(model_id: str, params: dict[str, Any]) -> dict[st
 
 # OpenAI-style params with no sampling equivalent — the replacements for
 # temperature/top_p on frontier reasoning models. Chat Completions and the
-# Responses API accept both as top-level fields; Converse has no typed
-# inferenceConfig slot for either, so they must travel through
-# additionalModelRequestFields (see BedrockConverse._to_additional_fields).
+# Responses API (Path A) accept both as flat top-level fields. Converse has no
+# typed inferenceConfig slot for either AND does not accept these flat names in
+# additionalModelRequestFields; it takes a nested shape instead
+# (reasoning.effort / text.verbosity) — see
+# BedrockConverse._to_additional_fields.
 _REASONING_PARAMS = ("reasoning_effort", "verbosity")
 
 
@@ -225,11 +227,25 @@ class BedrockConverse:
         Converse's typed ``inferenceConfig`` has no slot for these — unlike
         temperature/max_tokens/top_p/stop, they're OpenAI-reasoning-model-
         specific, not part of the base inference config Converse normalizes
-        across providers. They pass through verbatim via
-        ``additionalModelRequestFields``, the same escape hatch Anthropic's
-        extended-thinking ``effort``/``thinking`` fields use on Converse.
+        across providers — so they travel through ``additionalModelRequestFields``.
+
+        Crucially, Converse does *not* accept the flat Chat Completions names
+        here: ``additionalModelRequestFields={"reasoning_effort": ...}`` is
+        rejected with ``ValidationException: unknown_parameter 'reasoning_effort'``
+        (same for ``verbosity``). On Converse the OpenAI models take the nested
+        structured form instead (live-verified against ``us.openai.gpt-5.6-terra``):
+
+            reasoning_effort -> {"reasoning": {"effort": <value>}}
+            verbosity        -> {"text": {"verbosity": <value>}}
+
+        Only Path A (the OpenAI-compatible endpoint / Chat Completions) uses the
+        flat top-level ``reasoning_effort`` / ``verbosity`` field names.
         """
-        fields = {k: params[k] for k in _REASONING_PARAMS if k in params}
+        fields: dict[str, Any] = {}
+        if "reasoning_effort" in params:
+            fields["reasoning"] = {"effort": params["reasoning_effort"]}
+        if "verbosity" in params:
+            fields["text"] = {"verbosity": params["verbosity"]}
         return fields
 
     def run(self, messages: list[dict[str, Any]], params: dict[str, Any]) -> dict[str, Any]:

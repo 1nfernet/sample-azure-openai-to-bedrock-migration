@@ -12,6 +12,14 @@ ChatBedrockConverse uses the Converse API under the hood, so it works across all
 Bedrock models. Auth is standard AWS credentials; there's no endpoint, key, or
 api_version to set.
 
+Frontier GPT reasoning models (openai.gpt-5.x, gpt-6) accept only the default
+temperature and reject an explicit value via Converse with a ValidationException
+("This model doesn't support the temperature field"). Guard the hardcoded
+temperature the same way harness/providers.py's _drop_unsupported_sampling does,
+so this example keeps working if BEDROCK_MODEL_ID points at one of those models.
+Use reasoning_effort / verbosity instead to control reasoning depth and reply
+length on frontier models — see docs/model-mapping.md#reasoning-models-replacing-temperaturetop_p.
+
 Install:
     pip install langchain-aws
 
@@ -24,11 +32,28 @@ import os
 
 from langchain_aws import ChatBedrockConverse
 
-llm = ChatBedrockConverse(
-    model=os.environ.get("BEDROCK_MODEL_ID", "openai.gpt-oss-120b-1:0"),
-    region_name=os.environ.get("AWS_REGION", "us-east-1"),
-    temperature=0.2,
-)
+MODEL = os.environ.get("BEDROCK_MODEL_ID", "openai.gpt-oss-120b-1:0")
+
+
+def _is_frontier_openai(model_id: str) -> bool:
+    """True for OpenAI frontier models (GPT-5.x / GPT-6) on Bedrock.
+
+    Matches ids like openai.gpt-5.6-terra and us.openai.gpt-6-astra, with or
+    without a us./global. inference-profile prefix. These models accept only
+    the default temperature and reject an explicit value.
+    """
+    mid = (model_id or "").lower()
+    return "openai.gpt-5" in mid or "openai.gpt-6" in mid
+
+
+_llm_kwargs = {
+    "model": MODEL,
+    "region_name": os.environ.get("AWS_REGION", "us-east-1"),
+}
+if not _is_frontier_openai(MODEL):
+    _llm_kwargs["temperature"] = 0.2
+
+llm = ChatBedrockConverse(**_llm_kwargs)
 
 
 def run(prompt: str) -> str:
