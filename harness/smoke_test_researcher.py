@@ -128,6 +128,66 @@ except Exception as e:
     record("harness provider", False, f"{type(e).__name__}: {e}")
 
 
+# ── Test 3: Responses API tool loop (researcher agent, Path C) ─────────────────
+
+print("\nTest 3 — Researcher agent Responses API tool loop (mantle)")
+
+try:
+    import openai  # noqa: F401
+    import aws_bedrock_token_generator  # noqa: F401
+
+    _have_responses_deps = True
+except ImportError as e:
+    _have_responses_deps = False
+    record("responses api loop", False, f"openai / token-generator not installed ({e})")
+
+if _have_responses_deps:
+    # The Responses API loop talks to the mantle endpoint, which takes the BARE
+    # model id (no us./global. inference-profile prefix). Strip any prefix off
+    # BEDROCK_MODEL_ID so this test works with the same env as the Converse test.
+    _mantle_model = MODEL
+    for _prefix in ("us.", "global.", "apac.", "eu."):
+        if _mantle_model.startswith(_prefix):
+            _mantle_model = _mantle_model[len(_prefix):]
+            break
+    _saved_model = os.environ.get("BEDROCK_MODEL_ID")
+    os.environ["BEDROCK_MODEL_ID"] = _mantle_model
+    try:
+        import bedrock_responses_api_loop as responder
+
+        t0 = time.time()
+        result = responder.research(
+            "What are the latest lightweight camping tent innovations in 2025?",
+            feedback="No feedback",
+        )
+        elapsed = round(time.time() - t0, 1)
+
+        assert isinstance(result, dict), "result must be a dict"
+        for key in ("web", "entities", "news"):
+            assert key in result, f"result must have '{key}' key"
+            assert isinstance(result[key], list), f"'{key}' must be a list"
+        assert len(result["web"]) > 0, "web results must not be empty"
+        first = result["web"][0]
+        for key in ("url", "name", "description"):
+            assert key in first, f"each result needs '{key}'"
+
+        record("responses loop completes", True, f"{elapsed}s  (model={_mantle_model})")
+        record("output shape valid", True, f"{len(result['web'])} web results")
+        print(f"\n    Sample result:")
+        print(f"    url:  {first['url'][:70]}")
+        print(f"    name: {first['name'][:70]}")
+    except AssertionError as e:
+        record("responses output shape validation", False, str(e))
+    except Exception as e:
+        record("responses loop execution", False, f"{type(e).__name__}: {e}")
+    finally:
+        # Restore BEDROCK_MODEL_ID for anything that runs after this block.
+        if _saved_model is None:
+            os.environ.pop("BEDROCK_MODEL_ID", None)
+        else:
+            os.environ["BEDROCK_MODEL_ID"] = _saved_model
+
+
 # ── Summary ─────────────────────────────────────────────────────────────────────
 
 passed = sum(1 for _, ok, _ in results if ok)

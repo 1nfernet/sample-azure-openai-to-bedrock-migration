@@ -60,12 +60,32 @@ list_messages()  ← final answer    response["output"]["message"]
 
 The inner JSON Schema is **identical** — only the outer wrapping changes.
 
-## Two migration targets
+## Three migration targets
 
 | Target | File | When to use |
 |---|---|---|
 | Bedrock Converse loop | `after/bedrock_converse_loop.py` | No new framework — pure `boto3`. Smallest surface area. |
+| Responses API loop | `after/bedrock_responses_api_loop.py` | You already use the OpenAI **Responses API** (or Azure OpenAI Assistants) and want to keep that surface for the agent loop. Runs on the mantle endpoint; can use the built-in server-side Web Search tool. |
 | Strands + AgentCore Runtime | `after/bedrock_strands_agentcore.py` | Strategic: managed runtime with Memory, Identity, Gateway. Mirrors what Azure AI Agent Service provided. |
+
+All three migrate the same researcher scenario and return the same shape
+(`{"web": [...], "entities": [...], "news": [...]}`), so you can diff targets
+side by side.
+
+### Converse loop vs. Responses API loop
+
+Both own the tool-call loop (Azure ran it server-side); they differ only in the
+API surface:
+
+| | Converse (`bedrock_converse_loop.py`) | Responses API (`bedrock_responses_api_loop.py`) |
+|---|---|---|
+| Endpoint | `bedrock-runtime` (boto3) | `bedrock-mantle` (OpenAI SDK) |
+| Model id | `us.openai.gpt-5.6-terra` (inference profile) | `openai.gpt-5.6-terra` (bare id) |
+| "A tool is requested" | `stopReason == "tool_use"` | `output` item of type `function_call` |
+| Tool schema | `toolSpec` + `inputSchema={"json": …}` | `{"type":"function","name":…,"parameters":…}` |
+| Return a result | `{"toolResult":{"toolUseId":…}}` | `{"type":"function_call_output","call_id":…}` |
+| Loop state | resend `messages` each turn | resend `input` list each turn (or `previous_response_id`) |
+| Server-side Web Search | no | yes (mantle built-in `web_search` tool) |
 
 ## Auth migration
 
