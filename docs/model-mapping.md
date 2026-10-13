@@ -42,6 +42,54 @@ throughput and availability:
 
 Use the profile ID as the `model` / `modelId` value exactly like a model ID.
 
+### Reasoning models: replacing temperature/top_p
+
+The frontier GPT models (`gpt-5.x`, `gpt-6`) are **reasoning models**: they
+accept only the *default* `temperature` and reject `top_p` outright — passing
+a non-default `temperature` or any `top_p` value is an error, not a silent
+no-op. If you're modernizing from an older Azure GPT deployment that tuned
+these knobs, that tuning has to move to two different parameters:
+
+| Replaces | Param | Values | Effect |
+|---|---|---|---|
+| `temperature` / `top_p` | `reasoning_effort` | `none`, `low`, `medium`, `high`, `xhigh`, `max` | How much the model reasons before answering. Lower = faster/cheaper, higher = more deliberate on hard, multi-step tasks. Default: `medium`. |
+| — (new control) | `verbosity` | `low`, `medium`, `high` | How expansive the final reply is, independent of reasoning effort. |
+
+Both are **top-level fields** on Chat Completions and the Responses API —
+same shape on Azure OpenAI's newer models and on Bedrock's OpenAI-compatible
+endpoint (Path A):
+
+```python
+client.chat.completions.create(
+    model="us.openai.gpt-5.6-terra",
+    messages=[{"role": "user", "content": "Summarize this incident report."}],
+    reasoning_effort="low",   # not temperature
+    verbosity="low",
+)
+```
+
+On **Converse (Path B)**, neither field has a slot in `inferenceConfig` — they
+aren't part of the base inference config Converse normalizes across every
+provider — so they travel through `additionalModelRequestFields` instead:
+
+```python
+client.converse(
+    modelId="us.openai.gpt-5.6-terra",
+    messages=[{"role": "user", "content": [{"text": "Summarize this incident report."}]}],
+    inferenceConfig={"maxTokens": 512},
+    additionalModelRequestFields={"reasoning_effort": "low", "verbosity": "low"},
+)
+```
+
+The harness implements this mapping in
+[`../harness/providers.py`](../harness/providers.py) —
+`_drop_unsupported_sampling` drops `temperature`/`top_p` for frontier models
+with a warning, and `BedrockConverse._to_additional_fields` routes
+`reasoning_effort`/`verbosity` into `additionalModelRequestFields`. See
+[`../harness/test_providers.py`](../harness/test_providers.py) for unit tests
+and `smoke_test_after.py`'s `check_reasoning_effort_verbosity` for a live
+check against both API paths.
+
 ---
 
 ## Embedding models

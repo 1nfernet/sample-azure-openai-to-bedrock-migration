@@ -22,6 +22,7 @@ harness/
 ├── normalize.py       # map both provider shapes into one comparable dict
 ├── diff.py            # structural parity + difflib similarity
 ├── test_diff.py       # offline unit tests (no network)
+├── test_providers.py  # offline unit tests for param translation (no network)
 └── recordings/        # saved responses, per label (git-ignored)
 ```
 
@@ -104,6 +105,21 @@ compares like for like.
 - `params` — OpenAI-style params. For Converse, `max_tokens`→`maxTokens`,
   `top_p`→`topP`, `stop`→`stopSequences` are mapped for you.
 
+> **Frontier GPT reasoning models (`openai.gpt-5.x`/`gpt-6`) reject
+> `temperature`/`top_p`** — the harness drops them automatically (with a
+> warning) rather than erroring. Control reasoning depth and reply length
+> instead with `reasoning_effort` (`none`/`low`/`medium`/`high`/`xhigh`/`max`)
+> and `verbosity` (`low`/`medium`/`high`). These aren't in `cases.jsonl` by
+> default — Azure OpenAI doesn't accept them yet, so a shared record/replay
+> case would fail on the `record` step — but both providers that talk to
+> Bedrock support them: `BedrockEndpoint` (Path A) passes them through as
+> top-level Chat Completions fields, and `BedrockConverse` (Path B) carries
+> them in `additionalModelRequestFields`, since Converse's typed
+> `inferenceConfig` has no slot for either. See `test_providers.py` for the
+> translation unit tests and `smoke_test_after.py`'s
+> `check_reasoning_effort_verbosity` for a live check (skipped for
+> non-frontier models).
+
 Point at your own file with `--cases path/to/cases.jsonl`.
 
 ## Configuration (environment variables)
@@ -125,7 +141,8 @@ No secrets are stored in code — everything comes from the environment.
 ## Run the tests
 
 ```bash
-python harness/test_diff.py    # 10 offline tests, no network
+python harness/test_diff.py       # 10 offline tests, no network
+python harness/test_providers.py  # 9 offline tests, no network — param translation
 ```
 
 ## Proving the examples work

@@ -91,6 +91,13 @@ pub static PATTERNS: &[(&str, &str, &str, Severity, &str)] = &[
         Severity::Medium,
         "Legacy Azure parameter. Replace with model= and use Bedrock model ID.",
     ),
+    (
+        "completions",
+        "temperature / top_p sampling params",
+        r"\btemperature\s*=|\btop_p\s*=",
+        Severity::Low,
+        "Only relevant if you're moving to a frontier GPT reasoning model (openai.gpt-5.x, gpt-6) on Bedrock: those accept only the default temperature and reject top_p outright (hard error, not a silent no-op). Replace with reasoning_effort (none/low/medium/high/xhigh/max) and verbosity (low/medium/high) — top-level fields on Chat Completions/Responses, or additionalModelRequestFields on Converse. No change needed for gpt-oss or non-OpenAI models. See docs/model-mapping.md#reasoning-models-replacing-temperaturetop_p.",
+    ),
 
     // ── Embeddings ────────────────────────────────────────────────────────
     (

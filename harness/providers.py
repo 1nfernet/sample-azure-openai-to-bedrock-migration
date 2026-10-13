@@ -43,6 +43,12 @@ def _drop_unsupported_sampling(model_id: str, params: dict[str, Any]) -> dict[st
     Returns a shallow copy with the offending keys removed; logs a one-line
     warning to stderr. gpt-oss and other models pass through unchanged. Mirrors
     LangChain ``ChatBedrockConverse``, which drops these and warns.
+
+    Frontier reasoning models replace temperature/top_p with two different
+    controls — ``reasoning_effort`` (none|low|medium|high|xhigh|max) and
+    ``verbosity`` (low|medium|high) — which this function leaves untouched so
+    callers can pass them through on the appropriate surface (see
+    ``_REASONING_PARAMS`` and each provider's ``run``).
     """
     if not _is_frontier_openai(model_id):
         return params
@@ -52,10 +58,19 @@ def _drop_unsupported_sampling(model_id: str, params: dict[str, Any]) -> dict[st
     cleaned = {k: v for k, v in params.items() if k not in ("temperature", "top_p")}
     print(
         f"warning: {model_id} does not support {', '.join(dropped)}; "
-        f"dropping (only default values are allowed)",
+        f"dropping (only default values are allowed). Use reasoning_effort/"
+        f"verbosity instead to control reasoning depth and reply length.",
         file=sys.stderr,
     )
     return cleaned
+
+
+# OpenAI-style params with no sampling equivalent — the replacements for
+# temperature/top_p on frontier reasoning models. Chat Completions and the
+# Responses API accept both as top-level fields; Converse has no typed
+# inferenceConfig slot for either, so they must travel through
+# additionalModelRequestFields (see BedrockConverse._to_additional_fields).
+_REASONING_PARAMS = ("reasoning_effort", "verbosity")
 
 
 def _to_dict(obj: Any) -> dict[str, Any]:
@@ -144,6 +159,10 @@ class BedrockEndpoint:
             # Frontier GPT models use max_completion_tokens on the OpenAI endpoint.
             params = dict(params)
             params["max_completion_tokens"] = params.pop("max_tokens")
+        # reasoning_effort / verbosity (see _REASONING_PARAMS) are already
+        # top-level Chat Completions fields, so they need no translation here
+        # — they pass straight through in **params, same as temperature would
+        # for a non-frontier model.
         resp = self._client.chat.completions.create(
             model=self._model, messages=messages, **params
         )
@@ -199,6 +218,20 @@ class BedrockConverse:
             cfg["stopSequences"] = params["stop"]
         return cfg
 
+    @staticmethod
+    def _to_additional_fields(params: dict[str, Any]) -> dict[str, Any]:
+        """Map reasoning_effort/verbosity onto Converse additionalModelRequestFields.
+
+        Converse's typed ``inferenceConfig`` has no slot for these — unlike
+        temperature/max_tokens/top_p/stop, they're OpenAI-reasoning-model-
+        specific, not part of the base inference config Converse normalizes
+        across providers. They pass through verbatim via
+        ``additionalModelRequestFields``, the same escape hatch Anthropic's
+        extended-thinking ``effort``/``thinking`` fields use on Converse.
+        """
+        fields = {k: params[k] for k in _REASONING_PARAMS if k in params}
+        return fields
+
     def run(self, messages: list[dict[str, Any]], params: dict[str, Any]) -> dict[str, Any]:
         params = _drop_unsupported_sampling(self._model, params)
         system, converse_msgs = self._to_converse(messages)
@@ -208,6 +241,9 @@ class BedrockConverse:
         cfg = self._to_inference_config(params)
         if cfg:
             kwargs["inferenceConfig"] = cfg
+        additional_fields = self._to_additional_fields(params)
+        if additional_fields:
+            kwargs["additionalModelRequestFields"] = additional_fields
         resp = self._client.converse(**kwargs)
         return normalize_converse(resp)
 

@@ -26,7 +26,7 @@ az2br scan . --output json
 | Category | Patterns |
 |----------|----------|
 | **auth** | AzureOpenAI client init, AZURE_OPENAI_API_KEY, Azure AD/Entra auth |
-| **completions** | chat.completions.create, Azure deployment names, engine parameter |
+| **completions** | chat.completions.create, Azure deployment names, engine parameter, temperature/top_p (frontier-model note) |
 | **embeddings** | embeddings.create, text-embedding-ada-002 model references |
 | **tools** | Function calling, tool_choice, Azure server-side tools (web_search, code_interpreter, file_search) |
 | **agents** | Azure AI Agent Service, LangChain AzureChatOpenAI, Semantic Kernel Azure connector |
