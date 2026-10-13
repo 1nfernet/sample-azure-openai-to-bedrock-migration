@@ -56,6 +56,13 @@ Web Search / Region note: Web Search is regional. At the time of writing it is
 supported in the commercial US Regions us-east-1, us-east-2, and us-west-2 (and
 GovCloud US-West), on the GPT-5.4/5.5/5.6 families. Confirm current availability
 in the Bedrock User Guide.
+
+Reasoning depth / verbosity note: these frontier GPT models accept only the
+default `temperature` and reject `top_p` — use `reasoning_effort` and
+`verbosity` instead (see ../../docs/model-mapping.md#reasoning-models-replacing-temperaturetop_p).
+On the Responses API shown here, reasoning effort is a nested object, not the
+flat string Chat Completions uses: `reasoning={"effort": "low"}`. `verbosity`
+stays a top-level field on both APIs.
 """
 
 import os
@@ -121,8 +128,29 @@ def respond_with_web_search() -> str:
     return response.output_text
 
 
+def respond_with_reasoning_effort() -> str:
+    """Responses API call tuning reasoning depth and reply length.
+
+    Frontier GPT reasoning models accept only the default `temperature` and
+    reject `top_p` — control cost/latency and reply length with
+    `reasoning_effort` and `verbosity` instead. On the Responses API,
+    `reasoning` is a nested object (`{"effort": ...}`), unlike the flat
+    `reasoning_effort` string Chat Completions uses; `verbosity` is top-level
+    on both.
+    """
+    response = client.responses.create(
+        model=MODEL,
+        input="What is 17 * 23? Reply with only the number.",
+        reasoning={"effort": "low"},  # none | low | medium | high | xhigh | max
+        verbosity="low",              # low | medium | high
+    )
+    return response.output_text
+
+
 if __name__ == "__main__":
     print("== responses.create (plain) ==")
     print(respond_once())
     print("\n== responses.create (web_search) ==")
     print(respond_with_web_search())
+    print("\n== responses.create (reasoning_effort + verbosity) ==")
+    print(respond_with_reasoning_effort())

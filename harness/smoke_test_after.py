@@ -11,10 +11,14 @@ the migration targets work end to end:
   1. Converse chat        (migration/01_chat_completions/after/bedrock_converse.py)
   2. OpenAI endpoint (A)   (migration/01_chat_completions/after/bedrock_openai_endpoint.py)
   3. Converse tool use     (migration/03_tool_use/after/bedrock_converse_tools.py)
-  4. Titan V2 embeddings   (migration/02_embeddings/after/bedrock_titan_embed.py)
-  5. LangChain             (migration/04_agents/langchain/after/bedrock_langchain.py)
-  6. AutoGen               (migration/04_agents/autogen/after/bedrock_autogen.py)
-  7. Semantic Kernel       (migration/04_agents/semantic_kernel/after/bedrock_semantic_kernel.py)
+  4. reasoning_effort /    frontier GPT models: verify reasoning_effort/verbosity
+     verbosity             work via additionalModelRequestFields (Converse) and
+                           as top-level fields (OpenAI endpoint). Skipped for
+                           non-frontier models (e.g. gpt-oss).
+  5. Titan V2 embeddings   (migration/02_embeddings/after/bedrock_titan_embed.py)
+  6. LangChain             (migration/04_agents/langchain/after/bedrock_langchain.py)
+  7. AutoGen               (migration/04_agents/autogen/after/bedrock_autogen.py)
+  8. Semantic Kernel       (migration/04_agents/semantic_kernel/after/bedrock_semantic_kernel.py)
 
 Framework/endpoint examples whose SDK is not installed are SKIPPED, not failed —
 install their deps to include them (see requirements.txt and the per-example
@@ -139,6 +143,54 @@ def check_converse_tools(bedrock) -> None:
             record("converse tool use", PASS, f'no tool call (stopReason={r.get("stopReason")})')
     except Exception as exc:  # noqa: BLE001
         record("converse tool use", FAIL, f"{type(exc).__name__}: {exc}")
+
+
+def check_reasoning_effort_verbosity(bedrock) -> None:
+    """Frontier GPT models drop temperature/top_p; verify their replacements —
+    reasoning_effort and verbosity — work on both the Converse and OpenAI-
+    compatible endpoint paths. Skipped for non-frontier models (e.g. gpt-oss),
+    which don't support these fields.
+    """
+    if not _is_frontier_openai(MODEL):
+        record("reasoning_effort/verbosity", SKIP, f"{MODEL} is not a frontier reasoning model")
+        return
+
+    # Path B — Converse: reasoning_effort/verbosity have no inferenceConfig
+    # slot, so they travel through additionalModelRequestFields.
+    try:
+        r = bedrock.converse(
+            modelId=MODEL,
+            messages=[{"role": "user", "content": [{"text": "What is 17 * 23? Reply with only the number."}]}],
+            inferenceConfig={"maxTokens": 256},
+            additionalModelRequestFields={"reasoning_effort": "low", "verbosity": "low"},
+        )
+        text = _reply_text(r["output"]["message"])
+        assert text.strip(), "empty reply"
+        record("reasoning_effort (converse)", PASS, f'"{text[:50]}…"')
+    except Exception as exc:  # noqa: BLE001
+        record("reasoning_effort (converse)", FAIL, f"{type(exc).__name__}: {exc}")
+
+    # Path A — OpenAI-compatible endpoint: top-level Chat Completions fields.
+    try:
+        import openai  # noqa: F401
+        import aws_bedrock_token_generator  # noqa: F401
+    except ImportError:
+        record("reasoning_effort (openai endpoint)", SKIP, "openai / token-generator not installed")
+        return
+    try:
+        client = _openai_client()
+        r = client.chat.completions.create(
+            model=MODEL,
+            messages=[{"role": "user", "content": "What is 17 * 23? Reply with only the number."}],
+            max_completion_tokens=256,
+            reasoning_effort="low",
+            verbosity="low",
+        )
+        text = _strip_reasoning(r.choices[0].message.content or "")
+        assert text.strip(), "empty reply"
+        record("reasoning_effort (openai endpoint)", PASS, f'"{text[:50]}…"')
+    except Exception as exc:  # noqa: BLE001
+        record("reasoning_effort (openai endpoint)", FAIL, f"{type(exc).__name__}: {exc}")
 
 
 def check_titan_embeddings(bedrock) -> None:
@@ -283,6 +335,7 @@ def main() -> int:
 
     check_converse_chat(bedrock)
     check_converse_tools(bedrock)
+    check_reasoning_effort_verbosity(bedrock)
     check_titan_embeddings(bedrock)
     check_openai_endpoint()
     check_langchain()

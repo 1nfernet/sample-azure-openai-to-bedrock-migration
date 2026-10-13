@@ -50,6 +50,7 @@ The OpenAI shape (Azure and Path A) and the Converse shape (Path B) differ:
 | message content | string | list of blocks: `[{"text": "..."}]` |
 | temperature / max tokens | top-level `temperature`, `max_tokens` | `inferenceConfig={"temperature":…, "maxTokens":…}` |
 | top_p / stop | `top_p`, `stop` | `inferenceConfig={"topP":…, "stopSequences":[…]}` |
+| reasoning depth / reply length | top-level `reasoning_effort`, `verbosity` | `additionalModelRequestFields={"reasoning_effort":…, "verbosity":…}` |
 | reply text | `resp.choices[0].message.content` | `resp["output"]["message"]["content"][0]["text"]` |
 | finish reason | `choices[0].finish_reason` (`stop`, `length`, `tool_calls`) | `resp["stopReason"]` (`end_turn`, `max_tokens`, `tool_use`) |
 | token usage | `usage.prompt_tokens` / `completion_tokens` / `total_tokens` | `usage.inputTokens` / `outputTokens` / `totalTokens` |
@@ -57,6 +58,17 @@ The OpenAI shape (Azure and Path A) and the Converse shape (Path B) differ:
 
 The regression harness in [`../harness/`](../harness/) normalizes both shapes
 into one dict so you can diff Azure vs. Bedrock output for parity.
+
+> **Modernizing to a frontier GPT reasoning model?** `openai.gpt-5.x` and
+> `gpt-6` on Bedrock accept only the *default* `temperature`/`top_p` — passing
+> a non-default value is rejected. Use `reasoning_effort`
+> (`none`/`low`/`medium`/`high`/`xhigh`/`max`) to trade latency/cost for
+> reasoning depth, and `verbosity` (`low`/`medium`/`high`) to control reply
+> length, instead. On Converse, both go through `additionalModelRequestFields`
+> since there's no typed `inferenceConfig` field for either — see
+> [model-mapping.md](model-mapping.md#reasoning-models-replacing-temperaturetop_p)
+> for the full example and [`../harness/providers.py`](../harness/providers.py)
+> for the reference implementation.
 
 ---
 

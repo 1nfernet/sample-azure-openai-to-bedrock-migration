@@ -57,7 +57,9 @@ jobs:
         run: python -m py_compile $(git ls-files '*.py')
 
       - name: Harness offline unit tests
-        run: python harness/test_diff.py
+        run: |
+          python harness/test_diff.py
+          python harness/test_providers.py
 
   smoke:
     name: Live Bedrock smoke test (gated on AWS creds)
