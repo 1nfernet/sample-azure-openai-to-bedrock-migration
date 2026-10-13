@@ -1,0 +1,70 @@
+name: Feature request
+description: Suggest a new example, migration path, scanner rule, or doc improvement.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the suggestion! This project is a migration playbook, so the most useful requests
+        are concrete: a missing example, an API/path gap, a new az2br rule, or a doc that would
+        unblock a real migration.
+
+        Before filing, please search [existing issues](https://github.com/aws-samples/sample-azure-openai-to-bedrock-migration/issues) to avoid duplicates.
+  - type: dropdown
+    id: type
+    attributes:
+      label: Request type
+      options:
+        - "New before/after example"
+        - "New or improved migration path (endpoint / Converse / Responses)"
+        - "New az2br scanner rule"
+        - "Harness / parity test improvement"
+        - "Documentation"
+        - "Other"
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which part of the project would this touch?
+      options:
+        - "migration/01_chat_completions (chat / completions)"
+        - "migration/02_embeddings"
+        - "migration/03_tool_use"
+        - "migration/04_agents"
+        - "harness (record/replay parity)"
+        - "az2br (Rust scanner)"
+        - "docs"
+        - "Other / not sure"
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the migration scenario or gap. What are you trying to do that the playbook doesn't cover today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What should be added or changed? If it's a new example, note the source (Azure) shape and the target (Bedrock) shape if you know them.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any workarounds you're using today, or other approaches you weighed.
+    validations:
+      required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Confirmation
+      options:
+        - label: I searched existing issues and this is not a duplicate.
+          required: true

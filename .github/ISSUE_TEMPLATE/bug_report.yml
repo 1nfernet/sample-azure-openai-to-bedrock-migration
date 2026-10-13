@@ -1,0 +1,108 @@
+name: Bug report
+description: Report an example, doc, scanner, or harness result that is wrong or doesn't work.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug. Please fill out the sections below so we can reproduce it.
+
+        Before filing, please search [existing issues](https://github.com/aws-samples/sample-azure-openai-to-bedrock-migration/issues) to avoid duplicates.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which part of the project is affected?
+      options:
+        - "migration/01_chat_completions (chat / completions)"
+        - "migration/02_embeddings"
+        - "migration/03_tool_use"
+        - "migration/04_agents"
+        - "harness (record/replay parity)"
+        - "az2br (Rust scanner)"
+        - "docs"
+        - "Other / not sure"
+    validations:
+      required: true
+  - type: dropdown
+    id: path
+    attributes:
+      label: Migration path
+      description: If relevant, which API surface does this involve?
+      options:
+        - "Path A — OpenAI-compatible endpoint"
+        - "Path B — Converse API"
+        - "Path C — Responses API (mantle)"
+        - "Not applicable"
+    validations:
+      required: false
+  - type: input
+    id: file
+    attributes:
+      label: Affected file(s)
+      description: Path(s) to the file(s) involved, e.g. migration/04_agents/.../bedrock_responses_api_loop.py
+      placeholder: "migration/01_chat_completions/after/bedrock_converse.py"
+    validations:
+      required: false
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug, including the exact error message or ValidationException if there is one.
+      placeholder: Paste the full error / traceback here.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen instead?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Commands run (with env vars), inputs, and model id. Redact any secrets.
+      placeholder: |
+        1. AWS_REGION=us-east-1 BEDROCK_MODEL_ID=... python ...
+        2. ...
+      render: shell
+    validations:
+      required: false
+  - type: input
+    id: model
+    attributes:
+      label: Bedrock model id / inference profile
+      description: e.g. openai.gpt-5.6-terra, us.openai.gpt-5.6-terra, openai.gpt-oss-120b-1:0
+      placeholder: "us.openai.gpt-5.6-terra"
+    validations:
+      required: false
+  - type: input
+    id: region
+    attributes:
+      label: AWS Region
+      placeholder: "us-east-1"
+    validations:
+      required: false
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Python version, and relevant package versions (boto3, openai, langchain-aws, aws-bedrock-token-generator), or Rust/cargo version for az2br.
+      placeholder: |
+        - OS:
+        - Python:
+        - boto3 / openai / langchain-aws:
+    validations:
+      required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Confirmation
+      options:
+        - label: I searched existing issues and this is not a duplicate.
+          required: true
+        - label: I removed any credentials, tokens, or other secrets from the logs above.
+          required: true
