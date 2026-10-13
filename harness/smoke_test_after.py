@@ -156,13 +156,16 @@ def check_reasoning_effort_verbosity(bedrock) -> None:
         return
 
     # Path B — Converse: reasoning_effort/verbosity have no inferenceConfig
-    # slot, so they travel through additionalModelRequestFields.
+    # slot. They also can't use the flat Chat Completions names here (Converse
+    # rejects those with unknown_parameter); on Converse the OpenAI models take
+    # the nested shape — reasoning.effort / text.verbosity — via
+    # additionalModelRequestFields.
     try:
         r = bedrock.converse(
             modelId=MODEL,
             messages=[{"role": "user", "content": [{"text": "What is 17 * 23? Reply with only the number."}]}],
             inferenceConfig={"maxTokens": 256},
-            additionalModelRequestFields={"reasoning_effort": "low", "verbosity": "low"},
+            additionalModelRequestFields={"reasoning": {"effort": "low"}, "text": {"verbosity": "low"}},
         )
         text = _reply_text(r["output"]["message"])
         assert text.strip(), "empty reply"

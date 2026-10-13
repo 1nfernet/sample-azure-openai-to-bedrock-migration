@@ -70,22 +70,29 @@ client.chat.completions.create(
 
 On **Converse (Path B)**, neither field has a slot in `inferenceConfig` — they
 aren't part of the base inference config Converse normalizes across every
-provider — so they travel through `additionalModelRequestFields` instead:
+provider — so they travel through `additionalModelRequestFields`. Note the
+**shape differs from Path A**: Converse rejects the flat `reasoning_effort` /
+`verbosity` names (`ValidationException: unknown_parameter`) and instead takes
+the nested structured form — `reasoning.effort` and `text.verbosity`:
 
 ```python
 client.converse(
     modelId="us.openai.gpt-5.6-terra",
     messages=[{"role": "user", "content": [{"text": "Summarize this incident report."}]}],
     inferenceConfig={"maxTokens": 512},
-    additionalModelRequestFields={"reasoning_effort": "low", "verbosity": "low"},
+    additionalModelRequestFields={
+        "reasoning": {"effort": "low"},   # NOT {"reasoning_effort": "low"}
+        "text": {"verbosity": "low"},     # NOT {"verbosity": "low"}
+    },
 )
 ```
 
 The harness implements this mapping in
 [`../harness/providers.py`](../harness/providers.py) —
 `_drop_unsupported_sampling` drops `temperature`/`top_p` for frontier models
-with a warning, and `BedrockConverse._to_additional_fields` routes
-`reasoning_effort`/`verbosity` into `additionalModelRequestFields`. See
+with a warning, and `BedrockConverse._to_additional_fields` reshapes
+`reasoning_effort`/`verbosity` into the nested `reasoning.effort` /
+`text.verbosity` form inside `additionalModelRequestFields`. See
 [`../harness/test_providers.py`](../harness/test_providers.py) for unit tests
 and `smoke_test_after.py`'s `check_reasoning_effort_verbosity` for a live
 check against both API paths.
