@@ -216,7 +216,11 @@ def check_langchain() -> None:
         record("langchain ChatBedrockConverse", SKIP, "langchain-aws not installed")
         return
     try:
-        llm = ChatBedrockConverse(model=MODEL, region_name=REGION, temperature=0.0, max_tokens=256)
+        kwargs: dict = {"model": MODEL, "region_name": REGION, "max_tokens": 256}
+        if not _is_frontier_openai(MODEL):
+            # Frontier GPT models reject an explicit temperature via Converse.
+            kwargs["temperature"] = 0.0
+        llm = ChatBedrockConverse(**kwargs)
         resp = llm.invoke("In one sentence, what is Amazon Bedrock?")
         content = resp.content if isinstance(resp.content, str) else str(resp.content)
         assert content.strip(), "empty reply"
